@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  background: #10051f;
+  /* allow content to sit nicely under iPhone notches when added to home screen */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Smoother momentum scrolling on iOS */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
