@@ -325,10 +325,10 @@ const prizes = [
     text: "Goes to the person whose team has the tournament’s top goalscorer.",
   },
   {
-    icon: "🐉",
-    title: "Giant Killer Award",
+    icon: "⭐",
+    title: "Best of the Rest",
     amount: "£15",
-    text: "For the person whose team pulls off the biggest shock result or best underdog run. Designed for chaos.",
+    text: "Awarded to whoever finishes highest out of the bottom-ranked teams.",
   },
 ];
 
@@ -937,11 +937,14 @@ export default function WorldCupSweepstakeReveal() {
             <div className="max-w-3xl">
               <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/15 px-3 py-1 text-sm text-white/90 backdrop-blur">
                 <PartyPopper className="h-4 w-4 text-yellow-200" />
-                World Cup Sweepstake
-              </div>
-              <h1 className="text-4xl font-black tracking-tight sm:text-6xl lg:text-7xl">
                 The Draw Is Coming
+              </div>
+              <h1 className="text-3xl font-black tracking-tight sm:text-5xl lg:text-6xl">
+                The Official Tailor World Cup Sweepstake
               </h1>
+              <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-sm font-black uppercase tracking-[0.18em] text-yellow-200">
+                🍸 Sponsored by Smirnoff Vodka
+              </p>
               <p className="mt-4 max-w-2xl text-base leading-7 text-white/80 sm:text-lg">
                 Teams are TBC until Friday 5 June. For now, everyone gets a pre-draw prophecy, a chaos rating, and time to mentally prepare for the country they definitely did not want.
               </p>
