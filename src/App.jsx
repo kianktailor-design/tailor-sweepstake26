@@ -289,6 +289,30 @@ const participants = [
     mood: "Flat-pack football, but if it works, nobody is allowed to question the instructions.",
     stat: "Assembly difficulty: World Cup",
   },
+  {
+    name: "Kantilal",
+    phrase: "Each-way accumulator",
+    title: "The Accumulator King",
+    verdict: "Always backing the long odds, always one result away from a life-changing payout, always blaming the last leg.",
+    mood: "If the team goes on a run, the bet slip becomes a family heirloom.",
+    stat: "Odds preferred: nothing under 50/1",
+  },
+  {
+    name: "Shanta",
+    phrase: "Hot puri straight from the pan",
+    title: "The Puri Powerhouse",
+    verdict: "Comes in golden, puffed up with confidence, and best enjoyed before the rivals even sit down.",
+    mood: "One good result and the whole kitchen is celebrating with a fresh batch.",
+    stat: "Rise rate: instant",
+  },
+  {
+    name: "Shenika",
+    phrase: "20/20 vision",
+    title: "The Optometrist",
+    verdict: "Reads the game two passes ahead, spots the weak link from across the pitch, and never misses a thing.",
+    mood: "Clear-eyed about the chances, but the prescription says deep run.",
+    stat: "Vision: pinpoint",
+  },
 ];
 
 const entries = participants.map((person, index) => {
@@ -328,7 +352,13 @@ const prizes = [
     icon: "⭐",
     title: "Best of the Rest",
     amount: "£15",
-    text: "Awarded to whoever finishes highest out of the bottom-ranked teams.",
+    text: "Awarded to whoever finishes highest out of the bottom 10 ranked teams that are drawn.",
+  },
+  {
+    icon: "🥅",
+    title: "Bless Them, No Chance",
+    amount: "£15",
+    text: "For the team with the fewest shots on goal across the whole tournament. They turned up, and that's what counts.",
   },
 ];
 
@@ -618,7 +648,7 @@ function PrizesView() {
         <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.22em] text-yellow-200">Prize pot</p>
-            <h2 className="mt-2 text-4xl font-black sm:text-5xl">£155 up for grabs</h2>
+            <h2 className="mt-2 text-4xl font-black sm:text-5xl">£170 up for grabs</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-white/70">
               Main winner gets the big money. The rest is reserved for heartbreak, goals, and beautiful World Cup nonsense.
             </p>
@@ -661,14 +691,14 @@ function PrizesView() {
             <div>
               <div className="mb-2 flex items-center gap-2 text-cyan-200">
                 <ShieldQuestion className="h-5 w-5" />
-                <h3 className="text-xl font-black">31-Team Hat Rule</h3>
+                <h3 className="text-xl font-black">34-Team Hat Rule</h3>
               </div>
               <p className="text-sm leading-6 text-white/70">
-                There are more World Cup teams than players, so only 31 countries go into the draw. The lowest-ranked qualified teams will be removed using the official FIFA/Coca-Cola Men’s World Ranking at the time of the draw.
+                There are more World Cup teams than players, so only 34 countries go into the draw. The lowest-ranked qualified teams will be removed using the official FIFA/Coca-Cola Men’s World Ranking at the time of the draw.
               </p>
             </div>
             <div className="rounded-2xl bg-black/25 px-4 py-3 text-sm font-black text-white/80">
-              31 players = 31 teams
+              34 players = 34 teams
             </div>
           </div>
         </CardContent>
@@ -950,8 +980,8 @@ export default function WorldCupSweepstakeReveal() {
               </p>
 
               <div className="mt-5 flex flex-wrap gap-2">
-                <span className="rounded-full bg-pink-500 px-3 py-1 text-sm font-bold">£155 prize pot</span>
-                <span className="rounded-full bg-yellow-300 px-3 py-1 text-sm font-bold text-slate-950">31 teams in the hat</span>
+                <span className="rounded-full bg-pink-500 px-3 py-1 text-sm font-bold">£170 prize pot</span>
+                <span className="rounded-full bg-yellow-300 px-3 py-1 text-sm font-bold text-slate-950">34 teams in the hat</span>
                 <span className="rounded-full bg-cyan-400 px-3 py-1 text-sm font-bold text-slate-950">Worst-ranked teams removed</span>
               </div>
             </div>
