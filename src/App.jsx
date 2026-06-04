@@ -27,7 +27,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-const DRAW_DATE = new Date("2026-06-05T00:00:00+01:00");
+const DRAW_DATE = new Date("2026-06-05T18:00:00+01:00");
 
 const colourThemes = [
   { colour: "from-yellow-300 via-green-400 to-blue-500", shirt: "bg-yellow-300 text-green-900", symbol: "🏆" },
@@ -421,7 +421,7 @@ function CountdownCard() {
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.22em] text-yellow-200">Draw countdown</p>
-            <p className="mt-1 text-lg font-black">Friday 5 June</p>
+            <p className="mt-1 text-lg font-black">Friday 5 June · 6pm</p>
           </div>
           <Clock3 className="h-8 w-8 text-yellow-200" />
         </div>
