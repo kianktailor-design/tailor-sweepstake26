@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Shuffle,
@@ -23,6 +23,13 @@ import {
   ShieldQuestion,
   Trophy,
   Share2,
+  Volume2,
+  VolumeX,
+  Play,
+  Pause,
+  SkipForward,
+  FastForward,
+  PlayCircle,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -315,16 +322,67 @@ const participants = [
   },
 ];
 
+// ── THE DRAW ──────────────────────────────────────────────────────────────
+// Locked result of the 6pm draw on Friday 5 June 2026. Teams are the top 34
+// qualified 2026 World Cup nations by FIFA ranking (April 2026 update); the
+// bottom 14 qualifiers were removed per the hat rule. Assigned by a one-time
+// fair random shuffle so every viewer sees the same official result.
+const drawResults = {
+  "Chantelle": { team: "Uruguay", flag: "🇺🇾", rank: 17 },
+  "Chivani": { team: "Canada", flag: "🇨🇦", rank: 30 },
+  "Millie": { team: "Portugal", flag: "🇵🇹", rank: 5 },
+  "Bhavna Tailor": { team: "England", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", rank: 4 },
+  "Bhav T": { team: "Morocco", flag: "🇲🇦", rank: 8 },
+  "Jaiden": { team: "Türkiye", flag: "🇹🇷", rank: 42 },
+  "Sean": { team: "Colombia", flag: "🇨🇴", rank: 13 },
+  "Kian": { team: "Australia", flag: "🇦🇺", rank: 26 },
+  "Ria B": { team: "Senegal", flag: "🇸🇳", rank: 14 },
+  "Rita": { team: "Japan", flag: "🇯🇵", rank: 18 },
+  "Aitor": { team: "Croatia", flag: "🇭🇷", rank: 11 },
+  "Niks": { team: "Czechia", flag: "🇨🇿", rank: 41 },
+  "Neshani": { team: "Iran", flag: "🇮🇷", rank: 21 },
+  "Nehal": { team: "Tunisia", flag: "🇹🇳", rank: 40 },
+  "Nilesh": { team: "Netherlands", flag: "🇳🇱", rank: 7 },
+  "Urvashi": { team: "Egypt", flag: "🇪🇬", rank: 29 },
+  "Ishani": { team: "Belgium", flag: "🇧🇪", rank: 9 },
+  "Anil": { team: "Qatar", flag: "🇶🇦", rank: 35 },
+  "Kristan": { team: "Algeria", flag: "🇩🇿", rank: 36 },
+  "Jay": { team: "Scotland", flag: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", rank: 47 },
+  "Puran": { team: "United States", flag: "🇺🇸", rank: 16 },
+  "Trishelle": { team: "Norway", flag: "🇳🇴", rank: 44 },
+  "Krishan": { team: "Mexico", flag: "🇲🇽", rank: 15 },
+  "Ria T": { team: "South Korea", flag: "🇰🇷", rank: 25 },
+  "Bharat": { team: "Ivory Coast", flag: "🇨🇮", rank: 33 },
+  "Vishay": { team: "Spain", flag: "🇪🇸", rank: 2 },
+  "Raj": { team: "Austria", flag: "🇦🇹", rank: 23 },
+  "Ciyaa": { team: "Ecuador", flag: "🇪🇨", rank: 24 },
+  "Bela": { team: "France", flag: "🇫🇷", rank: 1 },
+  "Ciroc": { team: "Brazil", flag: "🇧🇷", rank: 6 },
+  "Mihir": { team: "Germany", flag: "🇩🇪", rank: 10 },
+  "Kantilal": { team: "Sweden", flag: "🇸🇪", rank: 39 },
+  "Shanta": { team: "Switzerland", flag: "🇨🇭", rank: 19 },
+  "Shenika": { team: "Argentina", flag: "🇦🇷", rank: 3 },
+};
+
+function rankVerdict(rank) {
+  if (rank <= 5) return "Genuine contender";
+  if (rank <= 12) return "Dark horse energy";
+  if (rank <= 24) return "Knockout-round hopeful";
+  return "Underdog spirit";
+}
+
 const entries = participants.map((person, index) => {
   const theme = colourThemes[index % colourThemes.length];
+  const draw = drawResults[person.name] || { team: "TBC", flag: theme.symbol, rank: null };
   return {
     ...person,
-    team: "TBC",
-    flag: theme.symbol,
-    status: "Awaiting draw",
+    team: draw.team,
+    flag: draw.flag,
+    rank: draw.rank,
+    status: draw.rank ? `FIFA World #${draw.rank}` : "Awaiting draw",
     colour: theme.colour,
     shirt: theme.shirt,
-    familyOdds: "Draw pending",
+    familyOdds: draw.rank ? rankVerdict(draw.rank) : "Draw pending",
     chaosLevel: 45 + ((index * 7) % 55),
   };
 });
@@ -428,7 +486,7 @@ function CountdownCard() {
 
         {countdown.isComplete ? (
           <div className="rounded-2xl bg-gradient-to-r from-yellow-300 to-pink-400 p-4 text-center text-xl font-black text-slate-950">
-            Draw day is here.
+            The draw is in — hit play!
           </div>
         ) : (
           <div className="grid grid-cols-4 gap-2">
@@ -520,6 +578,442 @@ function FullScreenCelebration({ active }) {
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+// ── Stadium-grade audio for the draw (Web Audio, no deps, respects a mute ref) ──
+function useDrawSound(mutedRef) {
+  const ctxRef = useRef(null);
+  function ctx() {
+    if (mutedRef.current) return null;
+    try {
+      if (!ctxRef.current) {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return null;
+        ctxRef.current = new Ctx();
+      }
+      if (ctxRef.current.state === "suspended") ctxRef.current.resume();
+      return ctxRef.current;
+    } catch {
+      return null;
+    }
+  }
+  function blip(freq, duration, type = "triangle", gain = 0.07) {
+    const c = ctx();
+    if (!c) return;
+    try {
+      const o = c.createOscillator();
+      const a = c.createGain();
+      o.type = type;
+      o.frequency.value = freq;
+      const t = c.currentTime;
+      a.gain.setValueAtTime(gain, t);
+      a.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+      o.connect(a);
+      a.connect(c.destination);
+      o.start(t);
+      o.stop(t + duration);
+    } catch {}
+  }
+  function whistle(long = false) {
+    const c = ctx();
+    if (!c) return;
+    try {
+      const dur = long ? 0.85 : 0.18;
+      const o = c.createOscillator();
+      const a = c.createGain();
+      o.type = "square";
+      const t = c.currentTime;
+      o.frequency.setValueAtTime(2250, t);
+      o.frequency.setValueAtTime(2520, t + dur * 0.35);
+      o.frequency.setValueAtTime(2250, t + dur * 0.7);
+      a.gain.setValueAtTime(0.0001, t);
+      a.gain.exponentialRampToValueAtTime(0.085, t + 0.02);
+      a.gain.setValueAtTime(0.085, t + dur - 0.05);
+      a.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(a);
+      a.connect(c.destination);
+      o.start(t);
+      o.stop(t + dur);
+    } catch {}
+  }
+  function roar(power = 1) {
+    const c = ctx();
+    if (!c) return;
+    try {
+      const dur = 1.4;
+      const buffer = c.createBuffer(1, Math.floor(c.sampleRate * dur), c.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      const src = c.createBufferSource();
+      src.buffer = buffer;
+      const bp = c.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.Q.value = 0.6;
+      const a = c.createGain();
+      const t = c.currentTime;
+      bp.frequency.setValueAtTime(470, t);
+      bp.frequency.exponentialRampToValueAtTime(1500, t + 0.45);
+      const peak = Math.min(0.22, 0.16 * power);
+      a.gain.setValueAtTime(0.0001, t);
+      a.gain.exponentialRampToValueAtTime(peak, t + 0.28);
+      a.gain.exponentialRampToValueAtTime(peak * 0.7, t + 0.8);
+      a.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(bp);
+      bp.connect(a);
+      a.connect(c.destination);
+      src.start(t);
+      src.stop(t + dur);
+    } catch {}
+  }
+  return {
+    tick: () => blip(360, 0.04, "square", 0.02),
+    whistle,
+    reveal: (power = 1) => {
+      blip(523.25, 0.16, "triangle", 0.07);
+      setTimeout(() => blip(659.25, 0.16, "triangle", 0.07), 90);
+      setTimeout(() => blip(783.99, 0.4, "triangle", 0.08), 180);
+      roar(power);
+    },
+    finale: () => {
+      whistle(true);
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => setTimeout(() => blip(f, 0.55, "triangle", 0.08), 280 + i * 130));
+      setTimeout(() => roar(1.4), 220);
+    },
+  };
+}
+
+// Commentary lines keyed to how strong the drawn team is.
+const DRAW_LINES = {
+  elite: ["A HEAVYWEIGHT!", "Straight to the favourites!", "Now THAT'S a draw!", "Top seed — get in!"],
+  strong: ["A proper team, this!", "Dark horses alert!", "Don't sleep on them!", "Sneaky-good pick!"],
+  mid: ["Knockout dreams alive!", "A real banana skin!", "Plucky and dangerous!", "Could go on a run!"],
+  minnow: ["Bless them — what a journey!", "Pure underdog spirit!", "Here for the vibes!", "Miracle run loading…"],
+};
+function drawLine(rank) {
+  const pool =
+    rank <= 6 ? DRAW_LINES.elite : rank <= 14 ? DRAW_LINES.strong : rank <= 26 ? DRAW_LINES.mid : DRAW_LINES.minnow;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function DrawShow({ order, onRevealOne, onClose }) {
+  const SPIN_MS = 1350;
+  const HOLD_MS = 2050;
+  const flags = useMemo(() => order.map((entry) => entry.flag), [order]);
+
+  const [index, setIndex] = useState(0);
+  const [stage, setStage] = useState("spinning"); // "spinning" | "locked"
+  const [reelFlag, setReelFlag] = useState(flags[0]);
+  const [comment, setComment] = useState("");
+  const [paused, setPaused] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const mutedRef = useRef(false);
+  mutedRef.current = muted;
+  const sound = useDrawSound(mutedRef);
+  const tickerRef = useRef(null);
+
+  const total = order.length;
+  const done = index >= total;
+  const current = done ? null : order[index];
+  const drawnCount = stage === "locked" ? index + 1 : index;
+  const drawn = order.slice(0, drawnCount);
+
+  // Kick the whole thing off with a referee's whistle.
+  useEffect(() => {
+    sound.whistle(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Spin the draw ball, then lock onto the real result for this pick.
+  useEffect(() => {
+    if (done) return;
+    setStage("spinning");
+    const reel = window.setInterval(() => {
+      setReelFlag(flags[Math.floor(Math.random() * flags.length)]);
+      sound.tick();
+    }, 80);
+    const lock = window.setTimeout(() => {
+      window.clearInterval(reel);
+      const picked = order[index];
+      setReelFlag(picked.flag);
+      setComment(drawLine(picked.rank || 99));
+      setStage("locked");
+      sound.reveal(picked.rank <= 6 ? 1.3 : 1);
+      if (navigator.vibrate) navigator.vibrate([40, 30, 80]);
+      onRevealOne(picked.name);
+    }, SPIN_MS);
+    return () => {
+      window.clearInterval(reel);
+      window.clearTimeout(lock);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, done]);
+
+  // Auto-advance after a locked pick, unless paused.
+  useEffect(() => {
+    if (done || stage !== "locked" || paused) return;
+    const t = window.setTimeout(() => setIndex((i) => i + 1), HOLD_MS);
+    return () => window.clearTimeout(t);
+  }, [stage, paused, index, done]);
+
+  // Keep the "drawn so far" ticker scrolled to the newest flag.
+  useEffect(() => {
+    if (tickerRef.current) tickerRef.current.scrollLeft = tickerRef.current.scrollWidth;
+  }, [drawnCount]);
+
+  // Finale flourish.
+  useEffect(() => {
+    if (done) {
+      sound.finale();
+      if (navigator.vibrate) navigator.vibrate([60, 50, 60, 50, 140]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [done]);
+
+  function skipToEnd() {
+    order.forEach((entry) => onRevealOne(entry.name));
+    setIndex(total);
+  }
+
+  const spinning = stage === "spinning";
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[70] flex flex-col overflow-hidden bg-[#04140a] text-white"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      {/* ── Stadium backdrop ── */}
+      <div className="pointer-events-none absolute inset-0">
+        {/* night sky */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0224] via-[#06121f] to-[#04140a]" />
+        {/* floodlight beams */}
+        <motion.div
+          className="absolute -top-10 left-[8%] h-[60vh] w-[40vw] origin-top rounded-b-[50%] bg-gradient-to-b from-white/25 to-transparent blur-2xl"
+          style={{ transform: "rotate(12deg)" }}
+          animate={{ opacity: [0.35, 0.55, 0.35] }}
+          transition={{ repeat: Infinity, duration: 4 }}
+        />
+        <motion.div
+          className="absolute -top-10 right-[8%] h-[60vh] w-[40vw] origin-top rounded-b-[50%] bg-gradient-to-b from-white/25 to-transparent blur-2xl"
+          style={{ transform: "rotate(-12deg)" }}
+          animate={{ opacity: [0.5, 0.3, 0.5] }}
+          transition={{ repeat: Infinity, duration: 4 }}
+        />
+        {/* crowd haze */}
+        <div className="absolute inset-x-0 top-[42%] h-24 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.08),transparent_70%)]" />
+        {/* pitch */}
+        <div className="absolute inset-x-0 bottom-0 h-[34%] overflow-hidden">
+          <div
+            className="absolute inset-0 origin-bottom"
+            style={{
+              transform: "perspective(520px) rotateX(58deg)",
+              background:
+                "repeating-linear-gradient(90deg, #0c5a2a 0 8%, #0a4f25 8% 16%)",
+            }}
+          />
+          <div className="absolute inset-x-0 bottom-0 top-0 bg-gradient-to-t from-transparent via-transparent to-[#04140a]" />
+          {/* centre circle */}
+          <div className="absolute left-1/2 top-6 h-24 w-48 -translate-x-1/2 rounded-[50%] border-2 border-white/25" style={{ transform: "translateX(-50%) perspective(520px) rotateX(58deg)" }} />
+        </div>
+      </div>
+
+      {/* ── Top scoreboard bar ── */}
+      <div className="relative z-10 flex items-center justify-between gap-3 px-4 py-4 sm:px-6">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-black/40 px-3 py-2 ring-1 ring-white/15">
+            <p className="text-[0.6rem] font-black uppercase tracking-[0.24em] text-yellow-300">The Official Draw</p>
+            <p className="text-xs font-bold text-white/60">Tailor World Cup</p>
+          </div>
+          <div className="rounded-xl bg-black/50 px-3 py-2 font-mono text-lg font-black tabular-nums tracking-widest text-cyan-300 ring-1 ring-white/15">
+            {String(Math.min(index + (done ? 0 : 1), total)).padStart(2, "0")}
+            <span className="text-white/30">/</span>
+            {total}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setMuted((m) => !m)} className="rounded-full bg-white/10 p-3 transition hover:bg-white/20" aria-label={muted ? "Unmute" : "Mute"}>
+            {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+          </button>
+          <button onClick={onClose} className="rounded-full bg-white/10 p-3 transition hover:bg-white/20" aria-label="Close the draw">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* progress bar */}
+      <div className="relative z-10 mx-4 h-1.5 overflow-hidden rounded-full bg-white/10 sm:mx-6">
+        <motion.div
+          className="h-full rounded-full bg-gradient-to-r from-yellow-300 via-pink-400 to-cyan-300"
+          animate={{ width: `${(Math.min(index, total) / total) * 100}%` }}
+          transition={{ duration: 0.4 }}
+        />
+      </div>
+
+      {/* ── Stage ── */}
+      <div className="relative z-10 flex flex-1 items-center justify-center px-4">
+        {!done ? (
+          <motion.div
+            className="relative w-full max-w-xl text-center"
+            animate={stage === "locked" ? { x: [0, -9, 8, -6, 5, 0], y: [0, 5, -4, 3, 0] } : { x: 0, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <ConfettiBurst active={stage === "locked"} />
+
+            <motion.p
+              key={`label-${index}`}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-xs font-black uppercase tracking-[0.3em] text-white/55"
+            >
+              Now drawing for
+            </motion.p>
+            <motion.h2
+              key={`name-${index}`}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mt-1 text-4xl font-black drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] sm:text-6xl"
+            >
+              {current.name}
+            </motion.h2>
+
+            {/* draw ball */}
+            <div className="relative mx-auto mt-7 h-44 w-44 sm:h-52 sm:w-52">
+              {/* glow ring on lock */}
+              <AnimatePresence>
+                {stage === "locked" && (
+                  <motion.div
+                    key={`ring-${index}`}
+                    className="absolute inset-0 rounded-full border-4 border-yellow-300"
+                    initial={{ scale: 0.7, opacity: 0.9 }}
+                    animate={{ scale: 1.7, opacity: 0 }}
+                    transition={{ duration: 0.7 }}
+                  />
+                )}
+              </AnimatePresence>
+
+              <motion.div
+                className="relative flex h-full w-full items-center justify-center rounded-full shadow-2xl ring-4 ring-white/30"
+                style={{
+                  background:
+                    "radial-gradient(circle at 32% 28%, #ffffff 0%, #eef0f3 45%, #c9ccd2 100%)",
+                }}
+                animate={spinning ? { rotate: 360 } : { rotate: 0, scale: [1, 1.16, 1] }}
+                transition={spinning ? { repeat: Infinity, duration: 0.55, ease: "linear" } : { duration: 0.5, ease: "easeOut" }}
+              >
+                {/* football panel hints */}
+                <div className="pointer-events-none absolute inset-0 rounded-full opacity-70" style={{ background: "radial-gradient(circle at 50% 18%, rgba(0,0,0,0.18) 0 9%, transparent 10%), radial-gradient(circle at 18% 72%, rgba(0,0,0,0.14) 0 8%, transparent 9%), radial-gradient(circle at 82% 72%, rgba(0,0,0,0.14) 0 8%, transparent 9%)" }} />
+                <span className="text-7xl drop-shadow sm:text-8xl" style={{ filter: spinning ? "blur(0.6px)" : "none" }}>
+                  {reelFlag}
+                </span>
+              </motion.div>
+
+              {/* spinning hint */}
+              {spinning && (
+                <motion.div
+                  className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-xs font-black uppercase tracking-widest text-white/70"
+                  animate={{ opacity: [0.4, 1, 0.4] }}
+                  transition={{ repeat: Infinity, duration: 0.8 }}
+                >
+                  Pulling the ball…
+                </motion.div>
+              )}
+            </div>
+
+            {/* broadcast lower-third */}
+            <div className="mt-9 min-h-[6.5rem]">
+              <AnimatePresence mode="wait">
+                {stage === "locked" && (
+                  <motion.div
+                    key={`team-${index}`}
+                    initial={{ opacity: 0, y: 24, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 200, damping: 16 }}
+                    className="mx-auto max-w-md overflow-hidden rounded-2xl border border-white/15 bg-black/45 backdrop-blur"
+                  >
+                    <div className="flex items-stretch">
+                      <div className="flex items-center bg-gradient-to-b from-yellow-300 to-pink-400 px-4 text-3xl text-slate-950">
+                        {current.flag}
+                      </div>
+                      <div className="flex-1 px-4 py-3 text-left">
+                        <p className="text-2xl font-black leading-tight sm:text-3xl">{current.team}</p>
+                        <p className="text-xs font-bold uppercase tracking-wide text-yellow-200">{comment}</p>
+                      </div>
+                      <div className="flex flex-col items-center justify-center border-l border-white/10 px-3 text-center">
+                        <p className="text-[0.55rem] font-bold uppercase text-white/45">Seed</p>
+                        <p className="text-lg font-black tabular-nums">#{current.rank}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div className="relative text-center" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+            <ConfettiBurst active />
+            <motion.div
+              className="text-7xl sm:text-8xl"
+              animate={{ y: [0, -14, 0], rotate: [0, -6, 6, 0] }}
+              transition={{ repeat: Infinity, duration: 2.4 }}
+            >
+              🏆
+            </motion.div>
+            <p className="mt-3 text-sm font-black uppercase tracking-[0.4em] text-yellow-300">Full time</p>
+            <h2 className="mt-1 text-4xl font-black sm:text-6xl">The Draw Is Complete</h2>
+            <p className="mx-auto mt-3 max-w-md text-white/70">
+              All {total} teams are in the hat — no repeats, no arguments. Every card on the board is now revealed.
+            </p>
+            <button
+              onClick={onClose}
+              className="mt-8 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-yellow-300 to-pink-400 px-8 py-4 text-lg font-black text-slate-950 shadow-xl transition hover:opacity-90"
+            >
+              <Trophy className="h-5 w-5" />
+              See the full board
+            </button>
+          </motion.div>
+        )}
+      </div>
+
+      {/* ── Drawn-so-far ticker ── */}
+      <div className="relative z-10 px-4 pb-1 sm:px-6">
+        <p className="mb-1 text-[0.6rem] font-black uppercase tracking-[0.24em] text-white/40">Drawn so far</p>
+        <div ref={tickerRef} className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {Array.from({ length: total }).map((_, i) => (
+            <div
+              key={i}
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg transition ${
+                i < drawnCount ? "bg-white/15 ring-1 ring-yellow-300/40" : "bg-white/5 text-white/20"
+              }`}
+            >
+              {i < drawnCount ? drawn[i].flag : "•"}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Controls ── */}
+      {!done && (
+        <div className="relative z-10 flex items-center justify-center gap-2 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-2 sm:gap-3">
+          <button onClick={() => setPaused((p) => !p)} className="inline-flex items-center gap-2 rounded-2xl bg-white/10 px-5 py-3 font-black transition hover:bg-white/20">
+            {paused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+            {paused ? "Play" : "Pause"}
+          </button>
+          {paused && stage === "locked" && (
+            <button onClick={() => setIndex((i) => i + 1)} className="inline-flex items-center gap-2 rounded-2xl bg-white/10 px-5 py-3 font-black transition hover:bg-white/20">
+              <SkipForward className="h-5 w-5" />
+              Next
+            </button>
+          )}
+          <button onClick={skipToEnd} className="inline-flex items-center gap-2 rounded-2xl bg-white/10 px-5 py-3 font-black transition hover:bg-white/20">
+            <FastForward className="h-5 w-5" />
+            Skip
+          </button>
+        </div>
+      )}
+    </motion.div>
   );
 }
 
@@ -787,7 +1281,7 @@ function RevealView({ filteredEntries, revealed, showAll, lastRevealed, revealEn
                         </div>
                         <div className="relative rounded-3xl bg-white/55 p-4 shadow-inner backdrop-blur">
                           <p className="text-sm font-black uppercase tracking-[0.18em] opacity-70">Team draw</p>
-                          <p className="mt-1 text-base font-black">TBC until Friday 5 June</p>
+                          <p className="mt-1 text-base font-black">Tap to reveal your team</p>
                         </div>
                       </div>
 
@@ -797,7 +1291,7 @@ function RevealView({ filteredEntries, revealed, showAll, lastRevealed, revealEn
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/55">{entry.name}'s team</p>
-                              <h2 className="mt-2 text-5xl font-black leading-none">TBC</h2>
+                              <h2 className="mt-2 text-3xl font-black leading-tight sm:text-4xl">{entry.team}</h2>
                             </div>
                             <div className="text-5xl drop-shadow-lg">{entry.flag}</div>
                           </div>
@@ -808,7 +1302,7 @@ function RevealView({ filteredEntries, revealed, showAll, lastRevealed, revealEn
                                 <Crown className="h-4 w-4" />
                                 <span className="text-xs font-bold uppercase">Status</span>
                               </div>
-                              <p className="mt-1 truncate text-sm font-black">Draw pending</p>
+                              <p className="mt-1 truncate text-sm font-black">{entry.status}</p>
                             </div>
                             <div className="rounded-2xl bg-white/10 p-3">
                               <div className="flex items-center gap-1 text-pink-200">
@@ -851,6 +1345,11 @@ export default function WorldCupSweepstakeReveal() {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [activeTab, setActiveTab] = useState("reveal");
   const [celebrate, setCelebrate] = useState(false);
+  const [drawShowOpen, setDrawShowOpen] = useState(false);
+
+  function revealName(name) {
+    setRevealed((current) => (current[name] ? current : { ...current, [name]: true }));
+  }
 
   const filteredEntries = useMemo(() => {
     const value = query.trim().toLowerCase();
@@ -960,14 +1459,14 @@ export default function WorldCupSweepstakeReveal() {
             animate={{ y: [0, -8, 0], rotate: [12, 8, 12] }}
             transition={{ repeat: Infinity, duration: 2.6 }}
           >
-            DRAW SOON
+            DRAW IS IN
           </motion.div>
 
           <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/15 px-3 py-1 text-sm text-white/90 backdrop-blur">
                 <PartyPopper className="h-4 w-4 text-yellow-200" />
-                The Draw Is Coming
+                The Draw Is In
               </div>
               <h1 className="text-3xl font-black tracking-tight sm:text-5xl lg:text-6xl">
                 The Official Tailor World Cup Sweepstake
@@ -976,8 +1475,16 @@ export default function WorldCupSweepstakeReveal() {
                 🍸 Sponsored by Smirnoff Vodka
               </p>
               <p className="mt-4 max-w-2xl text-base leading-7 text-white/80 sm:text-lg">
-                Teams are TBC until Friday 5 June. For now, everyone gets a pre-draw prophecy, a chaos rating, and time to mentally prepare for the country they definitely did not want.
+                The draw is done. 34 teams, one each, no repeats — every card below is loaded and waiting. Hit play to watch the whole thing unfold name by name, or flip the cards yourself.
               </p>
+
+              <button
+                onClick={() => setDrawShowOpen(true)}
+                className="group mt-5 inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-yellow-300 via-pink-400 to-fuchsia-500 px-6 py-4 text-lg font-black text-slate-950 shadow-xl transition hover:opacity-90"
+              >
+                <PlayCircle className="h-6 w-6" />
+                Watch the Draw
+              </button>
 
               <div className="mt-5 flex flex-wrap gap-2">
                 <span className="rounded-full bg-pink-500 px-3 py-1 text-sm font-bold">£170 prize pot</span>
@@ -1100,7 +1607,7 @@ export default function WorldCupSweepstakeReveal() {
         {activeTab === "tracker" && <TrackerComingSoon />}
 
         <footer className="pb-6 text-center text-xs text-white/45">
-          First release draft — teams are TBC until the draw. Tracker is still waiting for Kian to discover discipline.
+          The official 6pm draw on Friday 5 June. 34 teams drawn at random, no repeats. Tracker is still waiting for Kian to discover discipline.
         </footer>
       </section>
 
@@ -1111,6 +1618,16 @@ export default function WorldCupSweepstakeReveal() {
       </AnimatePresence>
 
       <FullScreenCelebration active={celebrate} />
+
+      <AnimatePresence>
+        {drawShowOpen && (
+          <DrawShow
+            order={entries}
+            onRevealOne={revealName}
+            onClose={() => setDrawShowOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </main>
   );
 }
